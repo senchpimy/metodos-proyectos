@@ -68,3 +68,15 @@ Raices numero_de_raices(char *funcion_pr)
   return res;
 }
 
+int str_to_num(char* s, int index){
+  char *s2 = s+index;
+  int val = 0;
+  while (1){
+    val = val*10;
+    val += *s2-48;
+    if (*(s2+1) > 57)
+      break;
+    s2++;
+  }
+  return val;
+} 
