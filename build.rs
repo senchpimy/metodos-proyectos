@@ -2,6 +2,6 @@ extern crate cc;
 
 fn main() {
     cc::Build::new()
-        .file("src/doubler.c")
+        .file("src/contar.c")
         .compile("libdoubler.a");
 }

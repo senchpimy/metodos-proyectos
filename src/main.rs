@@ -1,37 +1,47 @@
 use eframe::egui;
 use chrono;
+use std::ffi::{c_char,CString};
+
+#[repr(C)]
+pub struct Raices {
+    pub positivas:i32,
+    pub negativas:i32,
+}
 
 extern "C"{
-    fn doubler(x: i32) -> i32;
+    fn numero_de_raices(test:*const c_char) -> Raices;
 }
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(320.0, 240.0)),
         ..Default::default()
     };
     eframe::run_native(
-        "My egui App",
+        "Raiz de una Funcion",
         options,
-        Box::new(|_cc| Box::<MyApp>::default()),
+        Box::new(|_cc| Box::<Proyecto1>::default()),
     )
 }
 
-struct MyApp {
-    name: String,
-    age: u32,
+struct Proyecto1 {
+    funcion: String,
 }
 
-impl Default for MyApp {
+impl Default for Proyecto1 {
     fn default() -> Self {
         Self {
-            name: "Arthur".to_owned(),
-            age: 42,
+            funcion: "".to_owned(), // x^3-6x^2+11x^1-6
         }
     }
 }
 
-impl eframe::App for MyApp {
+#[no_mangle]
+pub extern fn create_string(val:&str) -> *const c_char {
+    let c_string = CString::new(val).expect("CString::new failed");
+    c_string.into_raw() // Move ownership to C
+}
+
+impl eframe::App for Proyecto1 {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Calcular Raiz de una funcion");
@@ -40,9 +50,10 @@ impl eframe::App for MyApp {
                 ui.label(format!("{:?}", chrono::offset::Local::now()));
             } );
             ui.separator();
-            ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
-            let res = unsafe{doubler(self.age as i32)};
-            ui.label(format!("Valor {}", res));
+            ui.add(egui::TextEdit::singleline(&mut self.funcion));
+            let raices = unsafe{numero_de_raices(create_string(&self.funcion))};
+            ui.label(format!("Esta Funcion tiene {} raices positivas", raices.positivas));
+            ui.label(format!("Esta Funcion tiene {} raices negativas", raices.negativas));
         });
         ctx.request_repaint();
     }
