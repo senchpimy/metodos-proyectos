@@ -1,6 +1,7 @@
 use eframe::egui;
 use std::ffi::{c_char,CString};
 use std::str::Chars;
+use egui::plot::{Line, Plot, PlotPoints};
 
 #[repr(C)]
 pub struct Raices {
@@ -26,7 +27,8 @@ fn main() -> Result<(), eframe::Error> {
 
 struct Proyecto1 {
     funcion: String,
-    funcion_compilada:Vec<Ecuacion>
+    funcion_compilada:Vec<Ecuacion>,
+    y:Vec<[f64;2]>,
                     //operacion, multiplicacion, potencia
 }
 
@@ -35,6 +37,7 @@ impl Default for Proyecto1 {
         Self {
             funcion: "+1x^3-6x^2+11x^1-6".to_owned(), // +1x^3-6x^2+11x^1-6
             funcion_compilada:Vec::new(),
+            y:Vec::new(),
         }
     }
 }
@@ -44,6 +47,16 @@ struct Ecuacion{
     positivo:i32,
     multiplicacion:i32,
     potencial:i32,
+}
+
+impl Ecuacion{
+    fn evaluar(&self,x:f64)->f64{
+        if self.positivo == 1 || self.positivo==-1{
+            let pot = x.powi(self.potencial);
+            return (pot*self.multiplicacion as f64)*self.positivo as f64;
+        };
+        self.positivo as f64
+    }
 }
 
 
@@ -68,6 +81,25 @@ fn consumir_chars(indice:&mut i32,mut numero:i32,chars:&mut Chars,extra:i32){
             *indice+=1;
         }
 
+}
+
+fn crear_valores(val:&Vec<Ecuacion>, y:&mut Vec<[f64;2]>){
+    for i in -50..80{
+        let x = 0.1*i as f64;
+        let mut coord:[f64;2]=Default::default();
+        let mut y_actu = 0.0;
+        for ec in val{
+            y_actu+=ec.evaluar(x);
+        }
+        coord[0]=x;
+        coord[1]=y_actu;
+        y.push(coord);
+    }
+
+}
+
+fn series(y:& Vec<[f64;2]>)->PlotPoints{
+    PlotPoints::new(y.to_vec())
 }
 
 fn compilar_funcion(funcion:&str, vec:&mut Vec<Ecuacion>){
@@ -135,7 +167,6 @@ fn str_to_int(s:&str, mut indice:i32)->i32{
 
 fn ultimo_valor(funcion:&str,total:i32)->bool{
     let (_, last) =funcion.split_at((total-0) as usize);
-    println!("Last Val:{}",last);
     match last.find('^') {
         Some(_)=>return true,
         None=>return false
@@ -154,11 +185,13 @@ impl eframe::App for Proyecto1 {
             if ui.add(egui::TextEdit::singleline(&mut self.funcion)).changed(){
                 self.funcion_compilada=Vec::new();
                 compilar_funcion(&self.funcion, &mut self.funcion_compilada);
-                println!("{:?}",&self.funcion_compilada);
+                crear_valores(&self.funcion_compilada, &mut self.y);
             }
             let raices = unsafe{numero_de_raices(create_string(&self.funcion))};
             ui.label(format!("Esta Funcion tiene {} raices positivas", raices.positivas));
             ui.label(format!("Esta Funcion tiene {} raices negativas", raices.negativas));
+            let line = Line::new(series(&self.y));
+            Plot::new("my_plot").view_aspect(1.0).show(ui, |plot_ui| plot_ui.line(line));
         });
         ctx.request_repaint();
     }
