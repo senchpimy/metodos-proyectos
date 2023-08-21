@@ -1,4 +1,6 @@
 use eframe::egui;
+use egui::{TextFormat, RichText, Align};
+use egui::text::LayoutJob;
 use std::ffi::{c_char,CString};
 use std::str::Chars;
 use egui::plot::{Line, Plot, PlotPoints};
@@ -165,6 +167,48 @@ fn str_to_int(s:&str, mut indice:i32)->i32{
    return ret; 
 }
 
+fn recursive_append(s:&mut Chars,upper:&mut bool,job:&mut LayoutJob){
+    let element = s.next();
+    let char = match element {
+        Some(val)=>val,
+        None=>{return;}
+    };
+    if *upper && (char == '+' || char == '-'){
+        *upper=false;
+    }
+    if !*upper{
+        if char == '^'{
+            *upper=true;
+        }else{
+            job.append(&format!("{}",char), 0.0, TextFormat::default());
+        }
+    }else{
+        job.append(&format!("{}",char), 0.0, TextFormat { 
+            font_id: egui::FontId { size: 10., ..Default::default() },
+            valign:Align::TOP,
+            ..Default::default()
+        });
+    }
+    recursive_append(s, upper, job);
+}
+
+fn func_to_gui(s:&str)->LayoutJob{
+    let mut job = LayoutJob::default();
+    job.append("Y= ", 0.0, TextFormat::default());
+    match s.find('^') {
+        Some(_)=>{
+            let mut bo=false;
+            let mut ss = s.chars();
+            recursive_append(&mut ss,&mut bo,&mut job)
+        },
+        None=>{
+            job.append(s, 0.0, TextFormat::default())
+        }
+        
+    } 
+    job
+}
+
 fn ultimo_valor(funcion:&str,total:i32)->bool{
     let (_, last) =funcion.split_at((total-0) as usize);
     match last.find('^') {
@@ -184,10 +228,17 @@ impl eframe::App for Proyecto1 {
             ui.separator();
             if ui.add(egui::TextEdit::singleline(&mut self.funcion)).changed(){
                 self.funcion_compilada=Vec::new();
+                self.y=Vec::new();
                 compilar_funcion(&self.funcion, &mut self.funcion_compilada);
                 crear_valores(&self.funcion_compilada, &mut self.y);
             }
             let raices = unsafe{numero_de_raices(create_string(&self.funcion))};
+            ui.separator();
+            ui.label(func_to_gui(&self.funcion));
+            //ui.label("Y=");
+            //ui.label(RichText::new("LALAL"));
+            //ui.label(RichText::new("LALAL").raised());
+            ui.separator();
             ui.label(format!("Esta Funcion tiene {} raices positivas", raices.positivas));
             ui.label(format!("Esta Funcion tiene {} raices negativas", raices.negativas));
             let line = Line::new(series(&self.y));
