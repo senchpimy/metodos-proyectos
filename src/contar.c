@@ -8,6 +8,7 @@ Raices numero_de_raices(char *funcion_pr)
   int len = strlen(funcion_pr);
   char *funcion = malloc(sizeof(char)*strlen(funcion_pr)+1);
   strcpy(funcion+1, funcion_pr);
+  char *free_ptr=funcion;
 
   char sig;
   if (funcion[1]=='-'){
@@ -64,11 +65,12 @@ Raices numero_de_raices(char *funcion_pr)
   res.negativas=cambios_reversa;
   res.positivas=cambios;
  // printf("Se dieron %i cambios de signo en la funcion negativa\n", cambios_reversa);
-
+  free(free_ptr);
   return res;
 }
 
-int str_to_num(char* s, int index){
+int str_to_int(char* s, int index){
+  //printf("String: %s; Indice:%i; Char Inicial:%c",s,index, s[index]);
   char *s2 = s+index;
   int val = 0;
   while (1){
