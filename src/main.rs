@@ -2,6 +2,7 @@ use eframe::egui;
 use egui::{TextFormat, RichText, Align};
 use egui::text::LayoutJob;
 use std::ffi::{c_char,CString};
+use std::slice::Iter;
 use std::str::Chars;
 use egui::plot::{Line, Plot, PlotPoints};
 
@@ -35,6 +36,7 @@ struct Proyecto1 {
     x_min:f64,
     x_max:f64,
     partes:i32,
+    division_sintetica:DivisionSintetica,
 }
 
 impl Default for Proyecto1 {
@@ -46,6 +48,7 @@ impl Default for Proyecto1 {
             x_min:-5.,
             x_max:5.,
             partes:100,
+            division_sintetica:DivisionSintetica::default(),
         }
     }
 }
@@ -261,5 +264,38 @@ impl eframe::App for Proyecto1 {
         ctx.request_repaint();
     }
 }
+#[derive(Default)]
+struct DivisionSintetica{
+    max_expo:i32,
+    factores:Vec<i32>,
+    terminos_in:Vec<i32>,
+    resultados:Vec<Option<i32>>,
+}
 
-//struct
+impl DivisionSintetica{
+    fn obtener_resultados(&mut self){
+        self.resultados=Vec::new();
+        for factor in &self.factores{
+            self.resultados.push(division_sin(factor, &self.terminos_in))
+        }
+    }
+}
+
+fn division_sin(factor:&i32, term_in:&Vec<i32>)->Option<i32>{
+    let mut terminos_in_iter = term_in.iter();
+    let prim_term_in = match terminos_in_iter.next(){
+        Some(val)=>val,
+        None=>return None
+        };
+    Some(resta(&mut terminos_in_iter, factor,prim_term_in))
+}
+
+fn resta(iters:&mut Iter<i32>, mut factor:&i32, num:&i32)->i32{
+    let mult = factor*num;
+    let int = match iters.next(){
+        Some(val)=>val,
+        None=>return *num
+    };
+    let res = int+mult;
+    resta(iters, factor, &res)
+}
