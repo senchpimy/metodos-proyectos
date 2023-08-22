@@ -32,6 +32,9 @@ struct Proyecto1 {
     funcion_compilada:Vec<Ecuacion>,
     y:Vec<[f64;2]>,
                     //operacion, multiplicacion, potencia
+    x_min:f64,
+    x_max:f64,
+    partes:i32,
 }
 
 impl Default for Proyecto1 {
@@ -40,6 +43,9 @@ impl Default for Proyecto1 {
             funcion: "+1x^3-6x^2+11x^1-6".to_owned(), // +1x^3-6x^2+11x^1-6
             funcion_compilada:Vec::new(),
             y:Vec::new(),
+            x_min:-5.,
+            x_max:5.,
+            partes:100,
         }
     }
 }
@@ -85,15 +91,17 @@ fn consumir_chars(indice:&mut i32,mut numero:i32,chars:&mut Chars,extra:i32){
 
 }
 
-fn crear_valores(val:&Vec<Ecuacion>, y:&mut Vec<[f64;2]>){
-    for i in -50..80{
-        let x = 0.1*i as f64;
+fn crear_valores(val:&Vec<Ecuacion>, y:&mut Vec<[f64;2]>,mut min:f64, max:f64, partes:i32){
+    let diff = (min - max).powi(2).sqrt();
+    let paso = diff /partes as f64;
+    for _ in 0..partes{
+        min += paso;
         let mut coord:[f64;2]=Default::default();
         let mut y_actu = 0.0;
         for ec in val{
-            y_actu+=ec.evaluar(x);
+            y_actu+=ec.evaluar(min);
         }
-        coord[0]=x;
+        coord[0]=min;
         coord[1]=y_actu;
         y.push(coord);
     }
@@ -230,20 +238,28 @@ impl eframe::App for Proyecto1 {
                 self.funcion_compilada=Vec::new();
                 self.y=Vec::new();
                 compilar_funcion(&self.funcion, &mut self.funcion_compilada);
-                crear_valores(&self.funcion_compilada, &mut self.y);
+                crear_valores(&self.funcion_compilada, &mut self.y, self.x_min, self.x_max, self.partes);
             }
             let raices = unsafe{numero_de_raices(create_string(&self.funcion))};
             ui.separator();
             ui.label(func_to_gui(&self.funcion));
-            //ui.label("Y=");
-            //ui.label(RichText::new("LALAL"));
-            //ui.label(RichText::new("LALAL").raised());
             ui.separator();
             ui.label(format!("Esta Funcion tiene {} raices positivas", raices.positivas));
             ui.label(format!("Esta Funcion tiene {} raices negativas", raices.negativas));
-            let line = Line::new(series(&self.y));
-            Plot::new("my_plot").view_aspect(1.0).show(ui, |plot_ui| plot_ui.line(line));
+            if ui.add(egui::Slider::new(&mut self.x_min, -50.0..=50.0).text("Valor Minimo de X")).changed() ||
+            ui.add(egui::Slider::new(&mut self.x_max, -50.0..=50.0).text("Valor Maximo de X")).changed() ||
+            ui.add(egui::Slider::new(&mut self.partes, 1..=500).text("Numero de Partes")).changed() {
+                self.y=Vec::new();
+                crear_valores(&self.funcion_compilada, &mut self.y, self.x_min, self.x_max, self.partes);
+            }
+            ui.separator();
+            ui.label("Metodo de division Sintetica");
+            ui.separator();
+            let line = Line::new(series(&self.y)).width(5.);
+            Plot::new("Plot").view_aspect(1.0).show(ui, |plot_ui| plot_ui.line(line));
         });
         ctx.request_repaint();
     }
 }
+
+//struct
