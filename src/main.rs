@@ -254,6 +254,8 @@ impl eframe::App for Proyecto1 {
             ui.add(egui::Slider::new(&mut self.partes, 1..=500).text("Numero de Partes")).changed() {
                 self.y=Vec::new();
                 crear_valores(&self.funcion_compilada, &mut self.y, self.x_min, self.x_max, self.partes);
+                self.division_sintetica.actualizar_datos(&self.funcion_compilada);
+                self.division_sintetica.obtener_resultados();
             }
             ui.separator();
             ui.label("Metodo de division Sintetica");
@@ -279,6 +281,15 @@ impl DivisionSintetica{
             self.resultados.push(division_sin(factor, &self.terminos_in))
         }
     }
+    fn actualizar_datos(&mut self, datos:&Vec<Ecuacion>){
+        let mut max = 0;
+        for ec in datos{
+            if ec.potencial>max{
+                max = ec.potencial;
+            }
+        }
+        self.max_expo=max;
+    }
 }
 
 fn division_sin(factor:&i32, term_in:&Vec<i32>)->Option<i32>{
@@ -290,7 +301,7 @@ fn division_sin(factor:&i32, term_in:&Vec<i32>)->Option<i32>{
     Some(resta(&mut terminos_in_iter, factor,prim_term_in))
 }
 
-fn resta(iters:&mut Iter<i32>, mut factor:&i32, num:&i32)->i32{
+fn resta(iters:&mut Iter<i32>, factor:&i32, num:&i32)->i32{
     let mult = factor*num;
     let int = match iters.next(){
         Some(val)=>val,
