@@ -1,5 +1,5 @@
 use eframe::egui;
-use egui::{TextFormat, RichText, Align};
+use egui::{TextFormat, Align};
 use egui::text::LayoutJob;
 use std::ffi::{c_char,CString};
 use std::slice::Iter;
@@ -148,11 +148,11 @@ fn compilar_funcion(funcion:&str, vec:&mut Vec<Ecuacion>){
             let _ = chars.next();
         }else{
             if elemento=='+' {
-                operacion.positivo=1*str_to_int(funcion, indice);
+                operacion.positivo=str_to_int(funcion, indice);
                 operacion.multiplicacion=0;
                 operacion.potencial=0;
             }else if elemento=='-' {
-                operacion.positivo=-1*str_to_int(funcion, indice);
+                operacion.positivo=-str_to_int(funcion, indice);
                 operacion.multiplicacion=0;
                 operacion.potencial=0;
             }
@@ -165,17 +165,17 @@ fn compilar_funcion(funcion:&str, vec:&mut Vec<Ecuacion>){
 fn str_to_int(s:&str, mut indice:i32)->i32{
     let mut ret=0;
     loop{
-        let int = s.bytes().nth(indice as usize);
+        let int = s.as_bytes().get(indice as usize).copied();
         let int = match int{
             Some(val)=>val,
             None=>{break}
         };
-        if int>=57 || int<47 {break}
-        ret=ret*10;
+        if !(47..57).contains(&int) {break}
+        ret *= 10;
         ret+=(int-48) as i32;
         indice+=1;
     }
-   return ret; 
+   ret
 }
 
 fn recursive_append(s:&mut Chars,upper:&mut bool,job:&mut LayoutJob){
@@ -221,10 +221,10 @@ fn func_to_gui(s:&str)->LayoutJob{
 }
 
 fn ultimo_valor(funcion:&str,total:i32)->bool{
-    let (_, last) =funcion.split_at((total-0) as usize);
+    let (_, last) =funcion.split_at(total as usize);
     match last.find('^') {
-        Some(_)=>return true,
-        None=>return false
+        Some(_)=>true,
+        None=>false
     }
 }
 
@@ -242,6 +242,8 @@ impl eframe::App for Proyecto1 {
                 self.y=Vec::new();
                 compilar_funcion(&self.funcion, &mut self.funcion_compilada);
                 crear_valores(&self.funcion_compilada, &mut self.y, self.x_min, self.x_max, self.partes);
+                self.division_sintetica.actualizar_datos(&self.funcion_compilada);
+                self.division_sintetica.obtener_resultados();
             }
             let raices = unsafe{numero_de_raices(create_string(&self.funcion))};
             ui.separator();
@@ -254,24 +256,47 @@ impl eframe::App for Proyecto1 {
             ui.add(egui::Slider::new(&mut self.partes, 1..=500).text("Numero de Partes")).changed() {
                 self.y=Vec::new();
                 crear_valores(&self.funcion_compilada, &mut self.y, self.x_min, self.x_max, self.partes);
-                self.division_sintetica.actualizar_datos(&self.funcion_compilada);
-                self.division_sintetica.obtener_resultados();
             }
             ui.separator();
-            ui.label("Metodo de division Sintetica");
+                ui.label("Metodo de division Sintetica");
+                for res in &self.division_sintetica.resultados{
+                    match  res.1 {
+                        Some(val) =>
+                            if val !=0{
+                            ui.label(format!("El valor {} pudo haber sido una raiz pero si valor en Y es de {}",res.0,val));
+
+                            }else{
+                                ui.label(format!("X: {} Y: {}",res.0, val));
+                            }
+                        None => {}
+                    };
+                }
+            ui.separator();
+                ui.label("Metodo de division Sintetica");
+                for res in &self.division_sintetica.resultados{
+                    match  res.1 {
+                        Some(val) =>
+                            if val !=0{
+                            ui.label(format!("El valor {} pudo haber sido una raiz pero si valor en Y es de {}",res.0,val));
+
+                            }else{
+                                ui.label(format!("X: {} Y: {}",res.0, val));
+                            }
+                        None => {}
+                    };
+                }
             ui.separator();
             let line = Line::new(series(&self.y)).width(5.);
-            Plot::new("Plot").view_aspect(1.0).show(ui, |plot_ui| plot_ui.line(line));
+            Plot::new("Plot").view_aspect(0.1).show(ui, |plot_ui| plot_ui.line(line));
         });
         ctx.request_repaint();
     }
 }
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct DivisionSintetica{
-    max_expo:i32,
     factores:Vec<i32>,
-    terminos_in:Vec<i32>,
-    resultados:Vec<Option<i32>>,
+    terminos_in:Vec<i32>, 
+    resultados:Vec<(i32,Option<i32>)>, // No se toca
 }
 
 impl DivisionSintetica{
@@ -282,23 +307,48 @@ impl DivisionSintetica{
         }
     }
     fn actualizar_datos(&mut self, datos:&Vec<Ecuacion>){
+        let term_in= match datos.last(){
+            Some(a)=>a.positivo.abs(),
+            None=>return
+        };
+        let term_in_factors=get_factors(term_in);
         let mut max = 0;
         for ec in datos{
             if ec.potencial>max{
                 max = ec.potencial;
             }
         }
-        self.max_expo=max;
+        let mut max_factors=get_factors(max);
+        max_factors.pop();
+        self.factores=Vec::new();
+        for fac in term_in_factors{
+            for max_fac in &max_factors{
+                let val = fac%max_fac;
+                if val == 0{self.factores.push(fac/max_fac)}
+            }
+        }
+        let h:Vec<i32> = datos.iter().map(|dat|{
+            if dat.positivo.abs()>1{
+                return dat.positivo
+            }
+            return dat.positivo*dat.multiplicacion
+        }).collect();
+        self.terminos_in=h;
     }
 }
 
-fn division_sin(factor:&i32, term_in:&Vec<i32>)->Option<i32>{
+fn get_factors(n: i32) -> Vec<i32> {
+    (1..n+1 ).into_iter().filter(|&x| n % x == 0).collect::<Vec<i32>>()
+}
+
+fn division_sin(factor:&i32, term_in:&Vec<i32>)->(i32,Option<i32>){
     let mut terminos_in_iter = term_in.iter();
     let prim_term_in = match terminos_in_iter.next(){
         Some(val)=>val,
-        None=>return None
+        None=>return (*factor, None)
         };
-    Some(resta(&mut terminos_in_iter, factor,prim_term_in))
+    let res = resta(&mut terminos_in_iter, factor,prim_term_in);
+    (*factor,Some(res))
 }
 
 fn resta(iters:&mut Iter<i32>, factor:&i32, num:&i32)->i32{
