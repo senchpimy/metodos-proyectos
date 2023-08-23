@@ -30,25 +30,27 @@ fn main() -> Result<(), eframe::Error> {
 
 struct Proyecto1 {
     funcion: String,
-    funcion_compilada:Vec<Ecuacion>,
+    funcion_compilada:Funcion,
     y:Vec<[f64;2]>,
                     //operacion, multiplicacion, potencia
     x_min:f64,
     x_max:f64,
     partes:i32,
     division_sintetica:DivisionSintetica,
+    metodo_biseccion:MetodoBiseccion,
 }
 
 impl Default for Proyecto1 {
     fn default() -> Self {
         Self {
             funcion: "+1x^3-6x^2+11x^1-6".to_owned(), // +1x^3-6x^2+11x^1-6
-            funcion_compilada:Vec::new(),
+            funcion_compilada:Funcion::default(),
             y:Vec::new(),
             x_min:-5.,
             x_max:5.,
             partes:100,
             division_sintetica:DivisionSintetica::default(),
+            metodo_biseccion:MetodoBiseccion::default(),
         }
     }
 }
@@ -58,6 +60,21 @@ struct Ecuacion{
     positivo:i32,
     multiplicacion:i32,
     potencial:i32,
+}
+
+#[derive(Debug,Default)]
+struct Funcion{
+    ecuaciones:Vec<Ecuacion>
+}
+
+impl Funcion {
+    fn evaluar(&self, x:f64)->f64{
+        let mut y =0.;
+        for ec in &self.ecuaciones{
+            y+=ec.evaluar(x);
+        }
+        y
+    }
 }
 
 impl Ecuacion{
@@ -94,16 +111,13 @@ fn consumir_chars(indice:&mut i32,mut numero:i32,chars:&mut Chars,extra:i32){
 
 }
 
-fn crear_valores(val:&Vec<Ecuacion>, y:&mut Vec<[f64;2]>,mut min:f64, max:f64, partes:i32){
+fn crear_valores(val:&Funcion, y:&mut Vec<[f64;2]>,mut min:f64, max:f64, partes:i32){
     let diff = (min - max).powi(2).sqrt();
     let paso = diff /partes as f64;
     for _ in 0..partes{
         min += paso;
         let mut coord:[f64;2]=Default::default();
-        let mut y_actu = 0.0;
-        for ec in val{
-            y_actu+=ec.evaluar(min);
-        }
+        let y_actu = val.evaluar(min);
         coord[0]=min;
         coord[1]=y_actu;
         y.push(coord);
@@ -115,7 +129,7 @@ fn series(y:& Vec<[f64;2]>)->PlotPoints{
     PlotPoints::new(y.to_vec())
 }
 
-fn compilar_funcion(funcion:&str, vec:&mut Vec<Ecuacion>){
+fn compilar_funcion(funcion:&str, vec:&mut Funcion){
     let mut chars=funcion.chars();
     let mut indice = 1;
 
@@ -156,10 +170,10 @@ fn compilar_funcion(funcion:&str, vec:&mut Vec<Ecuacion>){
                 operacion.multiplicacion=0;
                 operacion.potencial=0;
             }
-            vec.push(operacion);
+            vec.ecuaciones.push(operacion);
             break;
         }
-        vec.push(operacion);
+        vec.ecuaciones.push(operacion);
     }
 }
 fn str_to_int(s:&str, mut indice:i32)->i32{
@@ -238,7 +252,7 @@ impl eframe::App for Proyecto1 {
             } );
             ui.separator();
             if ui.add(egui::TextEdit::singleline(&mut self.funcion)).changed(){
-                self.funcion_compilada=Vec::new();
+                self.funcion_compilada=Funcion::default();
                 self.y=Vec::new();
                 compilar_funcion(&self.funcion, &mut self.funcion_compilada);
                 crear_valores(&self.funcion_compilada, &mut self.y, self.x_min, self.x_max, self.partes);
@@ -251,9 +265,9 @@ impl eframe::App for Proyecto1 {
             ui.separator();
             ui.label(format!("Esta Funcion tiene {} raices positivas", raices.positivas));
             ui.label(format!("Esta Funcion tiene {} raices negativas", raices.negativas));
-            if ui.add(egui::Slider::new(&mut self.x_min, -50.0..=50.0).text("Valor Minimo de X")).changed() ||
-            ui.add(egui::Slider::new(&mut self.x_max, -50.0..=50.0).text("Valor Maximo de X")).changed() ||
-            ui.add(egui::Slider::new(&mut self.partes, 1..=500).text("Numero de Partes")).changed() {
+            if ui.add(egui::Slider::new(&mut self.x_min, -70.0..=self.x_max-2.).text("Valor Minimo de X")).changed() ||
+            ui.add(egui::Slider::new(&mut self.x_max, (self.x_min+2.)..=70.0).text("Valor Maximo de X")).changed() ||
+            ui.add(egui::Slider::new(&mut self.partes, 1..=1500).text("Numero de Partes")).changed() {
                 self.y=Vec::new();
                 crear_valores(&self.funcion_compilada, &mut self.y, self.x_min, self.x_max, self.partes);
             }
@@ -271,20 +285,14 @@ impl eframe::App for Proyecto1 {
                         None => {}
                     };
                 }
+            ui.label(format!("Terminos Independientes: {:?}",&self.division_sintetica.terminos_in));
+            ui.label(format!("Terminos Factores: {:?}",&self.division_sintetica.factores));
             ui.separator();
-                ui.label("Metodo de division Sintetica");
-                for res in &self.division_sintetica.resultados{
-                    match  res.1 {
-                        Some(val) =>
-                            if val !=0{
-                            ui.label(format!("El valor {} pudo haber sido una raiz pero si valor en Y es de {}",res.0,val));
-
-                            }else{
-                                ui.label(format!("X: {} Y: {}",res.0, val));
-                            }
-                        None => {}
-                    };
-                }
+                ui.label("Metodo del Conejo (Metodo de Biseccion)");
+            if ui.button("Activa").clicked(){
+                self.metodo_biseccion.buscar_raiz(&self.funcion_compilada,3);
+                self.metodo_biseccion.calcular_raices(&self.funcion_compilada);
+            }
             ui.separator();
             let line = Line::new(series(&self.y)).width(5.);
             Plot::new("Plot").view_aspect(0.1).show(ui, |plot_ui| plot_ui.line(line));
@@ -306,14 +314,14 @@ impl DivisionSintetica{
             self.resultados.push(division_sin(factor, &self.terminos_in))
         }
     }
-    fn actualizar_datos(&mut self, datos:&Vec<Ecuacion>){
-        let term_in= match datos.last(){
+    fn actualizar_datos(&mut self, datos:&Funcion){
+        let term_in= match datos.ecuaciones.last(){
             Some(a)=>a.positivo.abs(),
             None=>return
         };
         let term_in_factors=get_factors(term_in);
         let mut max = 0;
-        for ec in datos{
+        for ec in &datos.ecuaciones{
             if ec.potencial>max{
                 max = ec.potencial;
             }
@@ -327,7 +335,7 @@ impl DivisionSintetica{
                 if val == 0{self.factores.push(fac/max_fac)}
             }
         }
-        let h:Vec<i32> = datos.iter().map(|dat|{
+        let h:Vec<i32> = datos.ecuaciones.iter().map(|dat|{
             if dat.positivo.abs()>1{
                 return dat.positivo
             }
@@ -359,4 +367,83 @@ fn resta(iters:&mut Iter<i32>, factor:&i32, num:&i32)->i32{
     };
     let res = int+mult;
     resta(iters, factor, &res)
+}
+
+#[derive(Debug,Default)]
+struct MetodoBiseccion{
+    raices:Vec<Biseccion>,
+    resultados:Vec<[f64;2]>
+}
+
+impl MetodoBiseccion{
+    fn buscar_raiz(&mut self,funcion:&Funcion, num_raices:i32){// Busca dos numeros de a y b tal que f(a)*f(b)<0
+        let mut min=-5.;
+        let paso = 0.33454;
+        let mut bisecciones:Vec<Biseccion>=Vec::new();
+        for _ in 0..num_raices{
+            let mut max = min+paso;
+            loop{
+                let fa = funcion.evaluar(min);
+                let fb = funcion.evaluar(max);
+                if fa*fb<0.{
+                    let bi= Biseccion::new(min, max+0.247958);
+                    bisecciones.push(bi);
+                    min=max+0.247958;
+                    break
+                }
+                max += paso;
+            }
+        }
+        self.raices=bisecciones;
+    }
+
+    fn calcular_raices(&mut self,funcion:&Funcion){
+        let tolerancia = 0.15;
+        let tolerancia2=0.05;
+        self.resultados=Vec::new();
+        for bi in &self.raices{
+            let (mut b, mut a) = bi.desarmar();
+            for _ in 0..150 {
+                let x0 = (a+b)/2.;
+                let y = funcion.evaluar(x0);
+                if ((0.-tolerancia)..(0.+tolerancia)).contains(&y){
+                    self.resultados.push([x0,y]);
+                    println!("EContrado 1 {:?}", &self.resultados);
+                    break;
+                }
+                let fa = funcion.evaluar(a);
+                let fb = funcion.evaluar(b);
+                let fx=funcion.evaluar(x0);
+                if x0>0.{
+                    if (fa*fx)>0.{
+                        b += tolerancia2;
+                        continue;
+                    }
+                    b = x0;
+                }else {
+                    if (fb*fx)>0.{
+                        a += tolerancia2;
+                        continue;
+                    }
+                    a = x0;
+                }
+
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Biseccion{
+    max:f64,
+    min:f64
+}
+
+impl Biseccion{
+    fn new(min:f64, max:f64)->Biseccion{
+        Biseccion { max, min }
+    }
+    fn desarmar(&self)->(f64,f64){
+        return (self.max, self.min);
+    }
 }
