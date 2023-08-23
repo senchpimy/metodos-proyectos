@@ -43,7 +43,7 @@ struct Proyecto1 {
 impl Default for Proyecto1 {
     fn default() -> Self {
         Self {
-            funcion: "+1x^3-6x^2+11x^1-6".to_owned(), // +1x^3-6x^2+11x^1-6
+            funcion: "".to_owned(), // +1x^3-6x^2+11x^1-6
             funcion_compilada:Funcion::default(),
             y:Vec::new(),
             x_min:-5.,
@@ -259,7 +259,14 @@ impl eframe::App for Proyecto1 {
                 self.division_sintetica.actualizar_datos(&self.funcion_compilada);
                 self.division_sintetica.obtener_resultados();
             }
-            let raices = unsafe{numero_de_raices(create_string(&self.funcion))};
+            let first = self.funcion.clone().remove(0);
+            let c_string = if first == '+'{
+                let (_,c) = self.funcion.split_at(1);
+                c
+            }else{
+                &self.funcion
+            };
+            let raices = unsafe{numero_de_raices(create_string(c_string))};
             ui.separator();
             ui.label(func_to_gui(&self.funcion));
             ui.separator();
@@ -289,9 +296,13 @@ impl eframe::App for Proyecto1 {
             ui.label(format!("Terminos Factores: {:?}",&self.division_sintetica.factores));
             ui.separator();
                 ui.label("Metodo del Conejo (Metodo de Biseccion)");
-            if ui.button("Activa").clicked(){
+            if ui.button("Usar").clicked() && self.funcion_compilada.ecuaciones.len()>0{
                 self.metodo_biseccion.buscar_raiz(&self.funcion_compilada,3);
                 self.metodo_biseccion.calcular_raices(&self.funcion_compilada);
+            }
+            for res in &self.metodo_biseccion.resultados{
+                ui.label(format!("Raiz encontrada en: {}
+Con un valor en Y de: {}",res[0], res[1])) ;
             }
             ui.separator();
             let line = Line::new(series(&self.y)).width(5.);
