@@ -89,9 +89,16 @@ impl Ecuacion{
 
 
 #[no_mangle]
-pub extern fn create_string(val:&str) -> *const c_char {
-    let c_string = CString::new(val).expect("CString::new failed");
-    c_string.into_raw() // Move ownership to C
+pub extern fn create_string(val:Option<&str>) -> *const c_char {
+    match val {
+        Some(val)=>{
+            let c_string = CString::new(val).expect("CString::new failed");
+            c_string.into_raw() // Move ownership to C
+        },
+        None=>{
+            CString::new("No value").expect("CString::new failed").into_raw()
+        }
+    }
 }
 
 fn consumir_chars(indice:&mut i32,mut numero:i32,chars:&mut Chars,extra:i32){
@@ -259,12 +266,16 @@ impl eframe::App for Proyecto1 {
                 self.division_sintetica.actualizar_datos(&self.funcion_compilada);
                 self.division_sintetica.obtener_resultados();
             }
-            let first = self.funcion.clone().remove(0);
-            let c_string = if first == '+'{
-                let (_,c) = self.funcion.split_at(1);
-                c
+            let c_string= if self.funcion.len()>0{
+                let first = self.funcion.clone().remove(0);
+                if first == '+' {
+                    let (_,c) = self.funcion.split_at(1);
+                    Some(c)
+                }else{
+                    Some(self.funcion.as_str())
+                }
             }else{
-                &self.funcion
+                None
             };
             let raices = unsafe{numero_de_raices(create_string(c_string))};
             ui.separator();
@@ -272,6 +283,7 @@ impl eframe::App for Proyecto1 {
             ui.separator();
             ui.label(format!("Esta Funcion tiene {} raices positivas", raices.positivas));
             ui.label(format!("Esta Funcion tiene {} raices negativas", raices.negativas));
+            let num_raices=raices.positivas+raices.negativas;
             if ui.add(egui::Slider::new(&mut self.x_min, -70.0..=self.x_max-2.).text("Valor Minimo de X")).changed() ||
             ui.add(egui::Slider::new(&mut self.x_max, (self.x_min+2.)..=70.0).text("Valor Maximo de X")).changed() ||
             ui.add(egui::Slider::new(&mut self.partes, 1..=1500).text("Numero de Partes")).changed() {
@@ -297,7 +309,7 @@ impl eframe::App for Proyecto1 {
             ui.separator();
                 ui.label("Metodo del Conejo (Metodo de Biseccion)");
             if ui.button("Usar").clicked() && self.funcion_compilada.ecuaciones.len()>0{
-                self.metodo_biseccion.buscar_raiz(&self.funcion_compilada,3);
+                self.metodo_biseccion.buscar_raiz(&self.funcion_compilada,num_raices);
                 self.metodo_biseccion.calcular_raices(&self.funcion_compilada);
             }
             for res in &self.metodo_biseccion.resultados{
@@ -390,10 +402,11 @@ impl MetodoBiseccion{
     fn buscar_raiz(&mut self,funcion:&Funcion, num_raices:i32){// Busca dos numeros de a y b tal que f(a)*f(b)<0
         let mut min=-5.;
         let paso = 0.33454;
+        let max_iter=1000;
         let mut bisecciones:Vec<Biseccion>=Vec::new();
         for _ in 0..num_raices{
             let mut max = min+paso;
-            loop{
+            for _ in 0..max_iter{
                 let fa = funcion.evaluar(min);
                 let fb = funcion.evaluar(max);
                 if fa*fb<0.{
