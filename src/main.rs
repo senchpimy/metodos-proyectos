@@ -5,18 +5,32 @@ use std::ffi::{c_char,CString};
 use std::slice::Iter;
 use std::str::Chars;
 use egui::plot::{Line, Plot, PlotPoints};
-
+//-------------------------------------- Incorporar el codigo de C
 #[repr(C)]
 pub struct Raices {
     pub positivas:i32,
     pub negativas:i32,
 }
 
-extern "C"{
-    fn numero_de_raices(str:*const c_char) -> Raices;
-    //fn str_to_int(str:*const c_char,index:i32) -> i32;
+#[no_mangle]
+pub extern fn create_string(val:Option<&str>) -> *const c_char {
+    match val {
+        Some(val)=>{
+            let c_string = CString::new(val).expect("CString::new failed");
+            c_string.into_raw() // Move ownership to C
+        },
+        None=>{
+            CString::new("No value").expect("CString::new failed").into_raw()
+        }
+    }
 }
 
+extern "C"{
+    fn numero_de_raices(str:*const c_char) -> Raices;
+}
+//-------------------------------------- Incorporar el codigo de C
+
+//-------------------------------------- Iniciar el programa
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         ..Default::default()
@@ -28,18 +42,19 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
+//-------------------------------------- Estructura para la interfaz grafica
 struct Proyecto1 {
-    funcion: String,
-    funcion_compilada:Funcion,
-    y:Vec<[f64;2]>,
-                    //operacion, multiplicacion, potencia
-    x_min:f64,
-    x_max:f64,
-    partes:i32,
-    division_sintetica:DivisionSintetica,
-    metodo_biseccion:MetodoBiseccion,
+    funcion: String, // Donde se guarda la funcion
+    funcion_compilada:Funcion, // La funcion para evaluar
+    y:Vec<[f64;2]>, //Coordenadas para la grfica
+    x_min:f64, //Valor minimo para la grafica
+    x_max:f64, //Valor maximo para la grafica
+    partes:i32, // Cuantas partes tiene la grafica
+    division_sintetica:DivisionSintetica, // Division Sintetica
+    metodo_biseccion:MetodoBiseccion, // Metodo de biseccion
 }
 
+//-------------------------------------- Estructura para la interfaz grafica
 impl Default for Proyecto1 {
     fn default() -> Self {
         Self {
@@ -55,6 +70,7 @@ impl Default for Proyecto1 {
     }
 }
 
+//-------------------------------------- Estructura para grafica
 #[derive(Debug,Default)]
 struct Ecuacion{
     positivo:i32,
@@ -62,11 +78,13 @@ struct Ecuacion{
     potencial:i32,
 }
 
+//-------------------------------------- Estructura para grafica
 #[derive(Debug,Default)]
 struct Funcion{
     ecuaciones:Vec<Ecuacion>
 }
 
+//-------------------------------------- Estructura para grafica
 impl Funcion {
     fn evaluar(&self, x:f64)->f64{
         let mut y =0.;
@@ -77,6 +95,7 @@ impl Funcion {
     }
 }
 
+//-------------------------------------- Estructura para grafica
 impl Ecuacion{
     fn evaluar(&self,x:f64)->f64{
         if self.positivo == 1 || self.positivo==-1{
@@ -88,19 +107,8 @@ impl Ecuacion{
 }
 
 
-#[no_mangle]
-pub extern fn create_string(val:Option<&str>) -> *const c_char {
-    match val {
-        Some(val)=>{
-            let c_string = CString::new(val).expect("CString::new failed");
-            c_string.into_raw() // Move ownership to C
-        },
-        None=>{
-            CString::new("No value").expect("CString::new failed").into_raw()
-        }
-    }
-}
 
+//-------------------------------------- Funciones para la grafica (Termina en la linea 258)
 fn consumir_chars(indice:&mut i32,mut numero:i32,chars:&mut Chars,extra:i32){
     loop{
         if numero<=9{
@@ -115,7 +123,6 @@ fn consumir_chars(indice:&mut i32,mut numero:i32,chars:&mut Chars,extra:i32){
             let _ = chars.next();
             *indice+=1;
         }
-
 }
 
 fn crear_valores(val:&Funcion, y:&mut Vec<[f64;2]>,mut min:f64, max:f64, partes:i32){
@@ -129,7 +136,6 @@ fn crear_valores(val:&Funcion, y:&mut Vec<[f64;2]>,mut min:f64, max:f64, partes:
         coord[1]=y_actu;
         y.push(coord);
     }
-
 }
 
 fn series(y:& Vec<[f64;2]>)->PlotPoints{
@@ -183,6 +189,7 @@ fn compilar_funcion(funcion:&str, vec:&mut Funcion){
         vec.ecuaciones.push(operacion);
     }
 }
+
 fn str_to_int(s:&str, mut indice:i32)->i32{
     let mut ret=0;
     loop{
@@ -248,24 +255,30 @@ fn ultimo_valor(funcion:&str,total:i32)->bool{
         None=>false
     }
 }
+//-------------------------------------- Funciones para la grafica
 
+//-------------------------------------- Funcion de la Interfaz grafica
 impl eframe::App for Proyecto1 {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Calcular Raiz de una funcion");
-            ui.separator();
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP),|ui|{
-                ui.label(format!("{:?}", chrono::offset::Local::now()));
-            } );
-            ui.separator();
-            if ui.add(egui::TextEdit::singleline(&mut self.funcion)).changed(){
-                self.funcion_compilada=Funcion::default();
-                self.y=Vec::new();
-                compilar_funcion(&self.funcion, &mut self.funcion_compilada);
-                crear_valores(&self.funcion_compilada, &mut self.y, self.x_min, self.x_max, self.partes);
-                self.division_sintetica.actualizar_datos(&self.funcion_compilada);
-                self.division_sintetica.obtener_resultados();
+            ui.heading("Calcular Raiz de una funcion"); // Titulo
+            ui.separator(); // Separardor
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP),|ui|{ // Reloj
+                ui.label(format!("{:?}", chrono::offset::Local::now()));// Reloj
+            } );// Reloj
+            ui.separator();// Separardor
+            if ui.add(egui::TextEdit::singleline(&mut self.funcion)).changed(){ // Espacio para
+                // ingresar la funcion
+                // Cada que se agregue o elimine algo de este espacio, lo siguiente se ejecuta
+                self.funcion_compilada=Funcion::default(); // Se actualiza la grafica
+                self.y=Vec::new();// Se actualiza la grafica
+                compilar_funcion(&self.funcion, &mut self.funcion_compilada);// Se actualiza la grafica
+                crear_valores(&self.funcion_compilada, &mut self.y, self.x_min, self.x_max, self.partes);// Se actualiza la grafica
+                self.division_sintetica.actualizar_datos(&self.funcion_compilada); // Se actualizan
+                // los datos de la funcion compilada
+                self.division_sintetica.obtener_resultados(); // Se obtienen los resultados
             }
+            // Se prepara el String de la fucnion para enviarse a C
             let c_string= if self.funcion.len()>0{
                 let first = self.funcion.clone().remove(0);
                 if first == '+' {
@@ -277,66 +290,87 @@ impl eframe::App for Proyecto1 {
             }else{
                 None
             };
-            let raices = unsafe{numero_de_raices(create_string(c_string))};
-            ui.separator();
-            ui.label(func_to_gui(&self.funcion));
-            ui.separator();
+            let raices = unsafe{numero_de_raices(create_string(c_string))}; // Se obtienen los resultados de contar cuantas raices positivas o negativas
+            ui.separator(); //Separardor
+            ui.label(func_to_gui(&self.funcion)); // Se muestra la funcion de forma estilizada
+            ui.separator(); //Separardor
+            // Se dice cuantas raices tuvo la funcion
             ui.label(format!("Esta Funcion tiene {} raices positivas", raices.positivas));
             ui.label(format!("Esta Funcion tiene {} raices negativas", raices.negativas));
-            let num_raices=raices.positivas+raices.negativas;
+            let num_raices=raices.positivas+raices.negativas; // Toal de posibles raices
+
+            // Modificadores para la grafica
             if ui.add(egui::Slider::new(&mut self.x_min, -70.0..=self.x_max-2.).text("Valor Minimo de X")).changed() ||
             ui.add(egui::Slider::new(&mut self.x_max, (self.x_min+2.)..=70.0).text("Valor Maximo de X")).changed() ||
             ui.add(egui::Slider::new(&mut self.partes, 1..=1500).text("Numero de Partes")).changed() {
                 self.y=Vec::new();
                 crear_valores(&self.funcion_compilada, &mut self.y, self.x_min, self.x_max, self.partes);
             }
-            ui.separator();
-                ui.label("Metodo de division Sintetica");
-                for res in &self.division_sintetica.resultados{
-                    match  res.1 {
-                        Some(val) =>
-                            if val !=0{
-                            ui.label(format!("El valor {} pudo haber sido una raiz pero si valor en Y es de {}",res.0,val));
 
-                            }else{
+            ui.separator(); //Separardor
+
+                ui.label("Metodo de division Sintetica"); // Titulo de la funcion
+                // Por todos los resultados de la  division_sintetica
+                for res in &self.division_sintetica.resultados{ 
+                    match  res.1 { // Si el valor en Y  es valido
+                        Some(val) => 
+                            if val !=0{ // Si es diferente de 0 no es raiz 
+                            ui.label(format!("El valor {} pudo haber sido una raiz pero si valor en Y es de {}",res.0,val));
+                            }else{ // Si es igual a 0 entonces si es una raiz
                                 ui.label(format!("X: {} Y: {}",res.0, val));
                             }
                         None => {}
                     };
                 }
-            ui.label(format!("Terminos Independientes: {:?}",&self.division_sintetica.terminos_in));
-            ui.label(format!("Terminos Factores: {:?}",&self.division_sintetica.factores));
-            ui.separator();
-                ui.label("Metodo del Conejo (Metodo de Biseccion)");
-            if ui.button("Usar").clicked() && self.funcion_compilada.ecuaciones.len()>0{
-                self.metodo_biseccion.buscar_raiz(&self.funcion_compilada,num_raices);
+
+            ui.label(format!("Terminos Independientes: {:?}",&self.division_sintetica.terminos_in)); // Mostramos los terminos Independientes
+            ui.label(format!("Terminos Factores: {:?}",&self.division_sintetica.factores));  // Mostramos los Factores
+            ui.separator(); // Separador
+                ui.label("Metodo del Conejo (Metodo de Biseccion)"); // Metodo de la biseccion
+            if ui.button("Usar").clicked() && self.funcion_compilada.ecuaciones.len()>0{ 
+                // Cuando
+                // se haga click en el boton y la ecuacion que ingr4eso el usuario sea valida se
+                // ejecutara lo siguiente
+                
+                // Se buscan
+                // las raicez
+                self.metodo_biseccion.buscar_raiz(&self.funcion_compilada,num_raices); 
+
+                // Se calculan las raices
                 self.metodo_biseccion.calcular_raices(&self.funcion_compilada);
             }
-            for res in &self.metodo_biseccion.resultados{
+            for res in &self.metodo_biseccion.resultados{ // Se muestran los resultados
                 ui.label(format!("Raiz encontrada en: {}
 Con un valor en Y de: {}",res[0], res[1])) ;
             }
             ui.separator();
-            let line = Line::new(series(&self.y)).width(5.);
-            Plot::new("Plot").view_aspect(0.1).show(ui, |plot_ui| plot_ui.line(line));
+            let line = Line::new(series(&self.y)).width(5.); // Se hacen las lineas del grafico 
+            Plot::new("Plot").view_aspect(0.1).show(ui, |plot_ui| plot_ui.line(line)); // Se
+            // muestra el grafico
         });
-        ctx.request_repaint();
+        ctx.request_repaint(); // Se repite el proceso
     }
 }
+
+
+//-------------------------------------- Inicia el metodo de DivisionSintetica
 #[derive(Default, Debug)]
 struct DivisionSintetica{
-    factores:Vec<i32>,
-    terminos_in:Vec<i32>, 
+    factores:Vec<i32>, // Factores de los numeros
+    terminos_in:Vec<i32>,  // Terminos Independientes
     resultados:Vec<(i32,Option<i32>)>, // No se toca
 }
 
+// Metodos
 impl DivisionSintetica{
     fn obtener_resultados(&mut self){
-        self.resultados=Vec::new();
-        for factor in &self.factores{
-            self.resultados.push(division_sin(factor, &self.terminos_in))
+        self.resultados=Vec::new(); // Eliminamos los resultados anteriores
+        for factor in &self.factores{ // Por cada factor
+            self.resultados.push(division_sin(factor, &self.terminos_in)) // Obtenemos el
+            // resultado de ese factor con los terminos Independientes
         }
     }
+
     fn actualizar_datos(&mut self, datos:&Funcion){
         let term_in= match datos.ecuaciones.last(){
             Some(a)=>a.positivo.abs(),
@@ -368,10 +402,13 @@ impl DivisionSintetica{
     }
 }
 
+// Funcion que obtiene los factores de un numero
 fn get_factors(n: i32) -> Vec<i32> {
-    (1..n+1 ).into_iter().filter(|&x| n % x == 0).collect::<Vec<i32>>()
+    (1..n+1 ).into_iter().filter(|&x| n % x == 0).collect::<Vec<i32>>() // En un rango de 1 hasta
+    // n+1 seleccioneamos los valores que divididos por n den 0 ( sean factores)
 }
 
+// Division Sintetica
 fn division_sin(factor:&i32, term_in:&Vec<i32>)->(i32,Option<i32>){
     let mut terminos_in_iter = term_in.iter();
     let prim_term_in = match terminos_in_iter.next(){
@@ -382,16 +419,18 @@ fn division_sin(factor:&i32, term_in:&Vec<i32>)->(i32,Option<i32>){
     (*factor,Some(res))
 }
 
-fn resta(iters:&mut Iter<i32>, factor:&i32, num:&i32)->i32{
+// Suma la multiplicacion del factor por el temino independiente
+fn resta(independientes:&mut Iter<i32>, factor:&i32, num:&i32)->i32{
     let mult = factor*num;
-    let int = match iters.next(){
+    let int = match independientes.next(){
         Some(val)=>val,
         None=>return *num
     };
     let res = int+mult;
-    resta(iters, factor, &res)
+    resta(independientes, factor, &res)
 }
 
+//-------------------------------------- Inicia el metodo de Biseccion
 #[derive(Debug,Default)]
 struct MetodoBiseccion{
     raices:Vec<Biseccion>,
@@ -399,6 +438,7 @@ struct MetodoBiseccion{
 }
 
 impl MetodoBiseccion{
+    // Obtenemos los segmentos en los cuales se va a buscar la raiz
     fn buscar_raiz(&mut self,funcion:&Funcion, num_raices:i32){// Busca dos numeros de a y b tal que f(a)*f(b)<0
         let mut min=-5.;
         let paso = 0.33454;
@@ -421,6 +461,7 @@ impl MetodoBiseccion{
         self.raices=bisecciones;
     }
 
+    // Obtenemos la raiz
     fn calcular_raices(&mut self,funcion:&Funcion){
         let tolerancia = 0.15;
         let tolerancia2=0.05;
