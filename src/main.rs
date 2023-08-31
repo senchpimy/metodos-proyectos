@@ -52,13 +52,14 @@ struct Proyecto1 {
     partes:i32, // Cuantas partes tiene la grafica
     division_sintetica:DivisionSintetica, // Division Sintetica
     metodo_biseccion:MetodoBiseccion, // Metodo de biseccion
+    metodo_newton:Newton,
 }
 
 //-------------------------------------- Estructura para la interfaz grafica
 impl Default for Proyecto1 {
     fn default() -> Self {
         Self {
-            funcion: "".to_owned(), // +1x^3-6x^2+11x^1-6
+            funcion: "+1x^3-6x^2+11x^1-6".to_owned(), // +1x^3-6x^2+11x^1-6
             funcion_compilada:Funcion::default(),
             y:Vec::new(),
             x_min:-5.,
@@ -66,12 +67,13 @@ impl Default for Proyecto1 {
             partes:100,
             division_sintetica:DivisionSintetica::default(),
             metodo_biseccion:MetodoBiseccion::default(),
+            metodo_newton:Newton::default(),
         }
     }
 }
 
 //-------------------------------------- Estructura para grafica
-#[derive(Debug,Default)]
+#[derive(Debug,Default,Clone)]
 struct Ecuacion{
     positivo:i32,
     multiplicacion:i32,
@@ -79,7 +81,7 @@ struct Ecuacion{
 }
 
 //-------------------------------------- Estructura para grafica
-#[derive(Debug,Default)]
+#[derive(Debug,Default,Clone)]
 struct Funcion{
     ecuaciones:Vec<Ecuacion>
 }
@@ -92,6 +94,22 @@ impl Funcion {
             y+=ec.evaluar(x);
         }
         y
+    }
+    fn to_derivada(&self)->Funcion{
+        let mut fun = self.clone();
+        for eq in &mut fun.ecuaciones{
+            if eq.positivo.abs()>1{
+                continue;
+            }
+            let mul = eq.potencial;
+            eq.multiplicacion*=mul;
+            eq.potencial-=1;
+        }
+        fun.ecuaciones.pop();
+        let len = fun.ecuaciones.len();
+        fun.ecuaciones[len-1].positivo = fun.ecuaciones[len-1].multiplicacion*fun.ecuaciones[len-1].positivo ;
+        fun.ecuaciones[len-1].multiplicacion=0;
+        fun
     }
 }
 
@@ -277,6 +295,8 @@ impl eframe::App for Proyecto1 {
                 self.division_sintetica.actualizar_datos(&self.funcion_compilada); // Se actualizan
                 // los datos de la funcion compilada
                 self.division_sintetica.obtener_resultados(); // Se obtienen los resultados
+                self.metodo_newton.obtener_derivada(self.funcion_compilada.clone());
+                self.metodo_newton.obtener_raices();
             }
             // Se prepara el String de la fucnion para enviarse a C
             let c_string= if self.funcion.len()>0{
@@ -510,5 +530,31 @@ impl Biseccion{
     }
     fn desarmar(&self)->(f64,f64){
         return (self.max, self.min);
+    }
+}
+
+//-------------------------------------- Inicia el metodo de Newton-Raphson
+
+#[derive(Default)]
+struct Newton{
+    derivada:Funcion,
+    funcion:Funcion
+}
+
+impl Newton {
+   fn obtener_derivada(&mut self, fun:Funcion){
+        self.funcion=fun.clone();
+        self.derivada=fun.to_derivada();
+    }
+
+    fn obtener_raices(&self){
+        let mut x0 = 0.0;
+        for i in 0..5{
+            let fx=self.funcion.evaluar(x0);
+            let fdx=self.derivada.evaluar(x0);
+            let div = fx/fdx;
+            println!("x={}; fx={}; iter= {}",x0,fx,i);
+            x0 = x0-div;
+        }
     }
 }
