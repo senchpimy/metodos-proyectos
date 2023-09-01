@@ -1,5 +1,6 @@
 use eframe::egui;
 use egui::{TextFormat, Align};
+use egui_extras::{Column, TableBuilder};
 use egui::text::LayoutJob;
 use std::ffi::{c_char,CString};
 use std::slice::Iter;
@@ -312,57 +313,81 @@ impl eframe::App for Proyecto1 {
             };
             let raices = unsafe{numero_de_raices(create_string(c_string))}; // Se obtienen los resultados de contar cuantas raices positivas o negativas
             ui.separator(); //Separardor
-            ui.label(func_to_gui(&self.funcion)); // Se muestra la funcion de forma estilizada
+//            ui.label(func_to_gui(&self.funcion)); // Se muestra la funcion de forma estilizada
+//            ui.separator(); //Separardor
+//            // Se dice cuantas raices tuvo la funcion
+//            ui.label(format!("Esta Funcion tiene {} raices positivas", raices.positivas));
+//            ui.label(format!("Esta Funcion tiene {} raices negativas", raices.negativas));
+//            let num_raices=raices.positivas+raices.negativas; // Toal de posibles raices
+//
+//            // Modificadores para la grafica
+//            if ui.add(egui::Slider::new(&mut self.x_min, -70.0..=self.x_max-2.).text("Valor Minimo de X")).changed() ||
+//            ui.add(egui::Slider::new(&mut self.x_max, (self.x_min+2.)..=70.0).text("Valor Maximo de X")).changed() ||
+//            ui.add(egui::Slider::new(&mut self.partes, 1..=1500).text("Numero de Partes")).changed() {
+//                self.y=Vec::new();
+//                crear_valores(&self.funcion_compilada, &mut self.y, self.x_min, self.x_max, self.partes);
+//            }
+//
             ui.separator(); //Separardor
-            // Se dice cuantas raices tuvo la funcion
-            ui.label(format!("Esta Funcion tiene {} raices positivas", raices.positivas));
-            ui.label(format!("Esta Funcion tiene {} raices negativas", raices.negativas));
-            let num_raices=raices.positivas+raices.negativas; // Toal de posibles raices
-
-            // Modificadores para la grafica
-            if ui.add(egui::Slider::new(&mut self.x_min, -70.0..=self.x_max-2.).text("Valor Minimo de X")).changed() ||
-            ui.add(egui::Slider::new(&mut self.x_max, (self.x_min+2.)..=70.0).text("Valor Maximo de X")).changed() ||
-            ui.add(egui::Slider::new(&mut self.partes, 1..=1500).text("Numero de Partes")).changed() {
-                self.y=Vec::new();
-                crear_valores(&self.funcion_compilada, &mut self.y, self.x_min, self.x_max, self.partes);
-            }
-
-            ui.separator(); //Separardor
-
-                ui.label("Metodo de division Sintetica"); // Titulo de la funcion
-                // Por todos los resultados de la  division_sintetica
-                for res in &self.division_sintetica.resultados{ 
-                    match  res.1 { // Si el valor en Y  es valido
-                        Some(val) => 
-                            if val !=0{ // Si es diferente de 0 no es raiz 
-                            ui.label(format!("El valor {} pudo haber sido una raiz pero si valor en Y es de {}",res.0,val));
-                            }else{ // Si es igual a 0 entonces si es una raiz
-                                ui.label(format!("X: {} Y: {}",res.0, val));
-                            }
-                        None => {}
-                    };
+//                ui.label("Metodo de division Sintetica"); // Titulo de la funcion
+//                // Por todos los resultados de la  division_sintetica
+//                for res in &self.division_sintetica.resultados{ 
+//                    match  res.1 { // Si el valor en Y  es valido
+//                        Some(val) => 
+//                            if val !=0{ // Si es diferente de 0 no es raiz 
+//                            ui.label(format!("El valor {} pudo haber sido una raiz pero si valor en Y es de {}",res.0,val));
+//                            }else{ // Si es igual a 0 entonces si es una raiz
+//                                ui.label(format!("X: {} Y: {}",res.0, val));
+//                            }
+//                        None => {}
+//                    };
+//                }
+//
+//            ui.label(format!("Terminos Independientes: {:?}",&self.division_sintetica.terminos_in)); // Mostramos los terminos Independientes
+//            ui.label(format!("Terminos Factores: {:?}",&self.division_sintetica.factores));  // Mostramos los Factores
+//            ui.separator(); // Separador
+//                ui.label("Metodo del Conejo (Metodo de Biseccion)"); // Metodo de la biseccion
+//                if ui.button("Usar").clicked() && self.funcion_compilada.ecuaciones.len()>0{ 
+//                     // Cuando
+//                     // se haga click en el boton y la ecuacion que ingr4eso el usuario sea valida se
+//                     // ejecutara lo siguiente
+//                     
+//                     // Se buscan
+//                     // las raicez
+//                     self.metodo_biseccion.buscar_raiz(&self.funcion_compilada,num_raices); 
+//
+//                     // Se calculan las raices
+//                     self.metodo_biseccion.calcular_raices(&self.funcion_compilada);
+//                }
+//                for res in &self.metodo_biseccion.resultados{ // Se muestran los resultados
+//                    ui.label(format!("Raiz encontrada en: {}
+//    Con un valor en Y de: {}",res[0], res[1])) ;
+//                }
+            ui.separator();
+            ui.label("Metodo Newton-Raphson");
+            let table = TableBuilder::new(ui)
+                            .striped(true)
+                            .column(Column::auto())
+                            .column(Column::initial(200.0))
+                            .column(Column::initial(200.0))
+                            .column(Column::initial(200.0))
+            ;
+            table.header(20.0, |mut header|{
+                header.col(|ui|{ui.strong("Iteracion");});
+                header.col(|ui|{ui.strong("X");});
+                header.col(|ui|{ui.strong("F(x)");});
+                header.col(|ui|{ui.strong("F'(x)");});
+            }).body(|mut body|{
+                for val in &self.metodo_newton.resultados{
+                     body.row(20.0, |mut row|{
+                        row.col(|ui|{ui.label(val.3.to_string());});
+                        row.col(|ui|{ui.label(val.2.to_string());});
+                        row.col(|ui|{ui.label(val.0.to_string());});
+                        row.col(|ui|{ui.label(val.1.to_string());});
+                         })  
                 }
-
-            ui.label(format!("Terminos Independientes: {:?}",&self.division_sintetica.terminos_in)); // Mostramos los terminos Independientes
-            ui.label(format!("Terminos Factores: {:?}",&self.division_sintetica.factores));  // Mostramos los Factores
-            ui.separator(); // Separador
-                ui.label("Metodo del Conejo (Metodo de Biseccion)"); // Metodo de la biseccion
-            if ui.button("Usar").clicked() && self.funcion_compilada.ecuaciones.len()>0{ 
-                // Cuando
-                // se haga click en el boton y la ecuacion que ingr4eso el usuario sea valida se
-                // ejecutara lo siguiente
-                
-                // Se buscan
-                // las raicez
-                self.metodo_biseccion.buscar_raiz(&self.funcion_compilada,num_raices); 
-
-                // Se calculan las raices
-                self.metodo_biseccion.calcular_raices(&self.funcion_compilada);
-            }
-            for res in &self.metodo_biseccion.resultados{ // Se muestran los resultados
-                ui.label(format!("Raiz encontrada en: {}
-Con un valor en Y de: {}",res[0], res[1])) ;
-            }
+            });
+            
             ui.separator();
             let line = Line::new(series(&self.y)).width(5.); // Se hacen las lineas del grafico 
             Plot::new("Plot").view_aspect(0.1).show(ui, |plot_ui| plot_ui.line(line)); // Se
@@ -538,7 +563,8 @@ impl Biseccion{
 #[derive(Default)]
 struct Newton{
     derivada:Funcion,
-    funcion:Funcion
+    funcion:Funcion,
+    resultados:Vec<(f64,f64,f64,i32)>
 }
 
 impl Newton {
@@ -547,14 +573,18 @@ impl Newton {
         self.derivada=fun.to_derivada();
     }
 
-    fn obtener_raices(&self){
+    fn obtener_raices(&mut self){
+        self.resultados=Vec::new();
         let mut x0 = 0.0;
-        for i in 0..5{
+        let tolerancia = 0.0001;
+        for i in 0..50{
             let fx=self.funcion.evaluar(x0);
             let fdx=self.derivada.evaluar(x0);
             let div = fx/fdx;
             println!("x={}; fx={}; iter= {}",x0,fx,i);
+            self.resultados.push((fx,fdx,x0,i));
             x0 = x0-div;
+            if fx.abs()<tolerancia{break;}
         }
     }
 }
