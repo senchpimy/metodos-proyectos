@@ -54,6 +54,7 @@ struct Proyecto1 {
     division_sintetica:DivisionSintetica, // Division Sintetica
     metodo_biseccion:MetodoBiseccion, // Metodo de biseccion
     metodo_newton:Newton,
+    metodo_misses:Misses,
 }
 
 //-------------------------------------- Estructura para la interfaz grafica
@@ -69,6 +70,7 @@ impl Default for Proyecto1 {
             division_sintetica:DivisionSintetica::default(),
             metodo_biseccion:MetodoBiseccion::default(),
             metodo_newton:Newton::default(),
+            metodo_misses:Misses::default(),
         }
     }
 }
@@ -298,6 +300,8 @@ impl eframe::App for Proyecto1 {
                 self.division_sintetica.obtener_resultados(); // Se obtienen los resultados
                 self.metodo_newton.obtener_derivada(self.funcion_compilada.clone());
                 self.metodo_newton.obtener_raices();
+                self.metodo_misses.obtener_derivada(self.funcion_compilada.clone());
+                self.metodo_misses.obtener_raices();
             }
             // Se prepara el String de la fucnion para enviarse a C
             let c_string= if self.funcion.len()>0{
@@ -364,7 +368,7 @@ impl eframe::App for Proyecto1 {
 //    Con un valor en Y de: {}",res[0], res[1])) ;
 //                }
             ui.separator();
-            ui.label("Metodo Newton-Raphson");
+            ui.label("Metodo Von Misses");
             let table = TableBuilder::new(ui)
                             .striped(true)
                             .column(Column::auto())
@@ -378,7 +382,7 @@ impl eframe::App for Proyecto1 {
                 header.col(|ui|{ui.strong("F(x)");});
                 header.col(|ui|{ui.strong("F'(x)");});
             }).body(|mut body|{
-                for val in &self.metodo_newton.resultados{
+                for val in &self.metodo_misses.resultados{
                      body.row(20.0, |mut row|{
                         row.col(|ui|{ui.label(val.3.to_string());});
                         row.col(|ui|{ui.label(val.2.to_string());});
@@ -580,6 +584,38 @@ impl Newton {
         for i in 0..50{
             let fx=self.funcion.evaluar(x0);
             let fdx=self.derivada.evaluar(x0);
+            let div = fx/fdx;
+            println!("x={}; fx={}; iter= {}",x0,fx,i);
+            self.resultados.push((fx,fdx,x0,i));
+            x0 = x0-div;
+            if fx.abs()<tolerancia{break;}
+        }
+    }
+}
+
+//-------------------------------------- Inicia el metodo de Von Misses
+#[derive(Default)]
+struct Misses{
+    derivada:Funcion,
+    derivada_val:f64,
+    funcion:Funcion,
+    resultados:Vec<(f64,f64,f64,i32)>
+}
+
+impl Misses {
+   fn obtener_derivada(&mut self, fun:Funcion){
+        self.funcion=fun.clone();
+        self.derivada=fun.to_derivada();
+    }
+
+    fn obtener_raices(&mut self){
+        self.resultados=Vec::new();
+        let mut x0 = 0.0;
+        self.derivada_val=self.derivada.evaluar(x0);
+        let tolerancia = 0.001;
+        for i in 0..50{
+            let fx=self.funcion.evaluar(x0);
+            let fdx=self.derivada_val;
             let div = fx/fdx;
             println!("x={}; fx={}; iter= {}",x0,fx,i);
             self.resultados.push((fx,fdx,x0,i));
