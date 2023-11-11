@@ -26,6 +26,35 @@ pub extern "C" fn create_string(val: Option<&str>) -> *const c_char {
     }
 }
 #[derive(Default)]
+struct GaussSeidel {
+    valores: Vec<Vec<f64>>,
+    resultados: Vec<f64>,
+    incognitas: Vec<f64>,
+}
+
+impl GaussSeidel {
+    fn calcular(&mut self) {
+        let mut valores = vec![0.0; self.valores.len()];
+        for _ in 0..20 {
+            for (index, renglon) in self.valores.iter().enumerate() {
+                let len = renglon.len();
+                let mut val = self.resultados[index];
+
+                for index2 in 0..len {
+                    if index == index2 {
+                        continue;
+                    }
+                    val -= self.valores[index][index2] * valores[index2];
+                }
+
+                valores[index] = val / self.valores[index][index];
+            }
+        }
+        self.incognitas = valores;
+    }
+}
+
+#[derive(Default)]
 struct Lagrance {
     valores: Vec<(f64, f64)>,
 }
@@ -80,6 +109,7 @@ struct Proyecto1 {
     metodo_newton: Newton,
     metodo_misses: Misses,
     metodo_lagrance: Lagrance,
+    metodo_gauss: GaussSeidel,
 }
 
 //-------------------------------------- Estructura para la interfaz grafica
@@ -90,6 +120,13 @@ impl Default for Proyecto1 {
         v.push((1., 3.));
         v.push((4., 18.));
         v.push((6., 38.));
+
+        let mut g = Vec::new();
+        g.push(vec![7., 1., -2.]);
+        g.push(vec![-3., -5., 1.]);
+        g.push(vec![2., 2., -6.]);
+        let r = vec![5., -20., -8.];
+
         Self {
             funcion: "+1x^3-6x^2+11x^1-6".to_owned(), // +1x^3-6x^2+11x^1-6
             funcion_compilada: Funcion::default(),
@@ -102,6 +139,11 @@ impl Default for Proyecto1 {
             metodo_newton: Newton::default(),
             metodo_misses: Misses::default(),
             metodo_lagrance: Lagrance { valores: v },
+            metodo_gauss: GaussSeidel {
+                valores: g,
+                resultados: r,
+                ..Default::default()
+            },
         }
     }
 }
@@ -321,47 +363,121 @@ fn ultimo_valor(funcion: &str, total: i32) -> bool {
 impl eframe::App for Proyecto1 {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Calcular Raiz de una funcion"); // Titulo
+            ui.heading("Calculadora Metodos Numericos"); // Titulo
             ui.separator(); // Separardor
             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                 // Reloj
                 ui.label(format!("{:?}", chrono::offset::Local::now())); // Reloj
             }); // Reloj
             ui.separator(); // Separardor
-            if ui
-                .add(egui::TextEdit::singleline(&mut self.funcion))
-                .changed()
-            {
-                // Espacio para
-                // ingresar la funcion
-                // Cada que se agregue o elimine algo de este espacio, lo siguiente se ejecuta
-                self.funcion_compilada = Funcion::default(); // Se actualiza la grafica
-                self.y = Vec::new(); // Se actualiza la grafica
-                compilar_funcion(&self.funcion, &mut self.funcion_compilada); // Se actualiza la grafica
-                crear_valores(
-                    &self.funcion_compilada,
-                    &mut self.y,
-                    self.x_min,
-                    self.x_max,
-                    self.partes,
-                ); // Se actualiza la grafica
-                self.division_sintetica
-                    .actualizar_datos(&self.funcion_compilada); // Se actualizan
-                                                                // los datos de la funcion compilada
-                self.division_sintetica.obtener_resultados(); // Se obtienen los resultados
-                self.metodo_newton
-                    .obtener_derivada(self.funcion_compilada.clone());
-                self.metodo_newton.obtener_raices();
-                self.metodo_misses
-                    .obtener_derivada(self.funcion_compilada.clone());
-                self.metodo_misses.obtener_raices();
+                            //if ui
+                            //    .add(egui::TextEdit::singleline(&mut self.funcion))
+                            //    .changed()
+                            //{
+                            //    // Espacio para
+                            //    // ingresar la funcion
+                            //    // Cada que se agregue o elimine algo de este espacio, lo siguiente se ejecuta
+                            //    self.funcion_compilada = Funcion::default(); // Se actualiza la grafica
+                            //    self.y = Vec::new(); // Se actualiza la grafica
+                            //    compilar_funcion(&self.funcion, &mut self.funcion_compilada); // Se actualiza la grafica
+                            //    crear_valores(
+                            //        &self.funcion_compilada,
+                            //        &mut self.y,
+                            //        self.x_min,
+                            //        self.x_max,
+                            //        self.partes,
+                            //    ); // Se actualiza la grafica
+                            //    self.division_sintetica
+                            //        .actualizar_datos(&self.funcion_compilada); // Se actualizan
+                            //                                                    // los datos de la funcion compilada
+                            //    self.division_sintetica.obtener_resultados(); // Se obtienen los resultados
+                            //    self.metodo_newton
+                            //        .obtener_derivada(self.funcion_compilada.clone());
+                            //    self.metodo_newton.obtener_raices();
+                            //    self.metodo_misses
+                            //        .obtener_derivada(self.funcion_compilada.clone());
+                            //    self.metodo_misses.obtener_raices();
+                            //}
+            ui.separator();
+            self.metodo_gauss.calcular();
+            let mut table = TableBuilder::new(ui).striped(true);
+            for _ in &self.metodo_gauss.valores {
+                table = table.column(Column::initial(50.0));
             }
+            table = table.column(Column::initial(100.));
+            table = table.column(Column::initial(100.));
+            let table = table.header(50.0, |mut header| {
+                let mut index = 0;
+                for _ in &self.metodo_gauss.valores {
+                    header.col(|ui| {
+                        ui.strong(format!("X{}", index));
+                    });
+                    index += 1;
+                }
+                header.col(|ui| {
+                    ui.strong("=");
+                });
+                header.col(|ui| {
+                    ui.strong("Resultados");
+                });
+            });
+            table.body(|mut body| {
+                let mut index = 0;
+                for renglon in &self.metodo_gauss.valores {
+                    body.row(20.0, |mut row| {
+                        for elemento in renglon {
+                            row.col(|ui| {
+                                ui.label(format!("{}X", elemento));
+                            });
+                        }
+
+                        row.col(|ui| {
+                            ui.label(format!("{}", self.metodo_gauss.resultados[index]));
+                        });
+                        row.col(|ui| {
+                            ui.label(format!(
+                                "X{}={}",
+                                index, self.metodo_gauss.incognitas[index]
+                            ));
+                        });
+                    });
+                    index += 1;
+                }
+            });
             ui.separator();
-            ui.label(format!(
-                "Resultado lagrance: {}",
-                self.metodo_lagrance.calcular(2.)
-            ));
-            ui.separator();
+            // ui.separator();
+            // let table = TableBuilder::new(ui)
+            //     .striped(true)
+            //     .column(Column::auto())
+            //     .column(Column::initial(200.0))
+            //     .column(Column::initial(200.0))
+            //     .column(Column::initial(200.0));
+            // table
+            //     .header(20.0, |mut header| {
+            //         header.col(|ui| {
+            //             ui.strong("X");
+            //         });
+            //         header.col(|ui| {
+            //             ui.strong("Y");
+            //         });
+            //     })
+            //     .body(|mut body| {
+            //         for val in &self.metodo_lagrance.valores {
+            //             body.row(20.0, |mut row| {
+            //                 row.col(|ui| {
+            //                     ui.label(val.0.to_string());
+            //                 });
+            //                 row.col(|ui| {
+            //                     ui.label(val.1.to_string());
+            //                 });
+            //             })
+            //         }
+            //     });
+            // ui.label(format!(
+            //     "Resultado lagrance de X = 2, Y= {}",
+            //     self.metodo_lagrance.calcular(2.)
+            // ));
+            // ui.separator();
             // Se prepara el String de la fucnion para enviarse a C
             let c_string = if self.funcion.len() > 0 {
                 let first = self.funcion.clone().remove(0);
@@ -408,6 +524,8 @@ impl eframe::App for Proyecto1 {
                             //
                             //            ui.label(format!("Terminos Independientes: {:?}",&self.division_sintetica.terminos_in)); // Mostramos los terminos Independientes
                             //            ui.label(format!("Terminos Factores: {:?}",&self.division_sintetica.factores));  // Mostramos los Factores
+            self.metodo_gauss.calcular();
+            println!("\n");
             ui.separator(); // Separador
             ui.label("Metodo del Conejo (Metodo de Biseccion)"); // Metodo de la biseccion
             if ui.button("Usar").clicked() && self.funcion_compilada.ecuaciones.len() > 0 {
