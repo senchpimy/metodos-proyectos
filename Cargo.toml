@@ -6,11 +6,22 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egui = "0.22.0"
-egui_extras = "0.22.0"
-eframe = "0.22.0"
+egui = "0.31.1"
+egui_extras = "0.31.1"
+eframe = "0.31.1"
 chrono = "0.4.26"
+egui_plot = "0.31.0"
 
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
+
+[features]
+default = []  # No features activados por defecto
+division = []
+biseccion = []
+newton = []
+misses = []
+lagrance = []
+gauss = []
+plot_controls = []
