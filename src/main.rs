@@ -610,7 +610,7 @@ impl eframe::App for Proyecto1 {
                     // Se buscan
                     // las raicez
                     self.metodo_biseccion
-                        .buscar_raiz(&self.funcion_compilada, num_raices);
+                        .buscar_raiz(&self.funcion_compilada, self.num_raices);
 
                     // Se calculan las raices
                     self.metodo_biseccion
